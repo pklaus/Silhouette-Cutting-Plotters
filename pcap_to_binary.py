@@ -2,13 +2,12 @@
 
 from __future__ import print_function
 
-import argparse
-import datetime
-import socket
-import pdb
-import struct
+import argparse, struct, os, logging
+#import datetime, pdb
 
 import dpkt
+
+logger = logging.getLogger(name=__name__)
 
 VERBOSE = False
 
@@ -28,8 +27,13 @@ def ip_to_str(address):
 def print_packets(pcap, target_file):
     last_payload, last_payload_in = None, None
     for timestamp, buf in pcap:
-        assert len(buf) >= 27
-        assert struct.unpack('<I', buf[23:27])[0] + 27 == len(buf)
+        try:
+            assert len(buf) >= 27
+            assert struct.unpack('<I', buf[23:27])[0] + 27 == len(buf)
+        except:
+            fmt = "The packet didn't pass the checks. Strange USB URB Packet?   {}"
+            logger.warning(fmt.format(buf))
+            continue
         kind = None
         kind = buf[21:23]
         payload = buf[27:]
@@ -58,9 +62,15 @@ def main():
     parser = argparse.ArgumentParser(description='Analyze pcap files')
     parser.add_argument('--verbose', help='')
     parser.add_argument('pcap_file', help='')
-    parser.add_argument('target_file', help='')
+    parser.add_argument('target_file', nargs='?', help='')
     args = parser.parse_args()
-    if args.verbose: VERBOSE = True
+
+    if args.verbose:
+        VERBOSE = True
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.WARNING)
+    if not args.target_file: args.target_file = os.path.splitext(args.pcap_file)[0] + '.bin'
 
     with open(args.pcap_file) as fp:
         pcap = dpkt.pcap.Reader(fp)

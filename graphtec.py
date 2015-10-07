@@ -2,6 +2,25 @@
 
 import re
 
+def coord_pair_filter(groups):
+    numbers = groups[0].decode('ascii').split(',')
+    assert len(numbers) % 2 == 0
+    return [float(num) for num in numbers]
+
+def default_filter(groups):
+    values = []
+    for val in groups:
+        float_val, int_val = float('nan'), None
+        try: float_val = float(val)
+        except: pass
+        try: int_val = int(val)
+        except: pass
+        if type(float_val) == float and float_val == int_val: values.append(int_val)
+        elif type(float_val) == float: values.append(float_val)
+        elif int_val: values.append(int_val)
+        else: values.append(group)
+    return values
+
 CMD_KINDS = [
   {'code': '1B 04', 'name': 'initialize plotter',    'equals':  b'\x1b\x04' },
   {'code': '1B 05', 'name': 'status request',        'equals':  b'\x1b\x05' },
@@ -30,7 +49,7 @@ CMD_KINDS = [
   {'code': '\\\\',  'name': 'border?',               'pattern': b'^\\\\(\d+|\d+\.\d+),(\d+|\d+\.\d+)\x03$' },
   {'code': 'Z',     'name': 'dimensions?',           'pattern': b'^Z(\d+|\d+\.\d+),(\d+|\d+\.\d+)\x03$' },
   {'code': 'M',     'name': 'move',                  'pattern': b'^M(\d+|\d+\.\d+),(\d+|\d+\.\d+)\x03$' },
-  {'code': 'D',     'name': 'draw',                  'pattern': b'^D(\d+|\d+\.\d+),(\d+|\d+\.\d+)\x03$' },
+  {'code': 'D',     'name': 'draw',                  'pattern': b'^D(((\d+|\d+\.\d+),(\d+|\d+\.\d+)(,(\d+|\d+\.\d+),(\d+|\d+\.\d+))*))\x03$', 'filter': coord_pair_filter},
   {'code': 'BZ',    'name': 'bezier',                'pattern': b'^BZ(\d+),(\d+|\d+\.\d+),(\d+|\d+\.\d+),(\d+|\d+\.\d+),(\d+|\d+\.\d+),(\d+|\d+\.\d+),(\d+|\d+\.\d+),(\d+|\d+\.\d+),(\d+|\d+\.\d+),(\d+)\x03$' },
 ]
 
@@ -44,28 +63,10 @@ class NotFound(Cmd):
 
 class GraphtecCmd(Cmd):
 
-    def __init__(self, cmd, kind, groups=None):
+    def __init__(self, cmd, kind, values=None):
         self.cmd = cmd
         self.kind = kind
-        self.groups = groups
-
-    @property
-    def values(self):
-        values = []
-        if self.groups:
-            for group in self.groups:
-                float_val, int_val = float('nan'), None
-
-                try: float_val = float(group)
-                except: pass
-                try: int_val = int(group)
-                except: pass
-
-                if type(float_val) == float and float_val == int_val: values.append(int_val)
-                elif type(float_val) == float: values.append(float_val)
-                elif int_val: values.append(int_val)
-                else: values.append(group)
-        return tuple(values)
+        self.values = values
 
     def __str__(self):
         desc = "Cmd: '{name}'".format(**self.kind)
@@ -79,13 +80,16 @@ class GraphtecCmd(Cmd):
 def parse_cmd(cmd):
     for cmd_kind in CMD_KINDS:
         if 'equals' in cmd_kind and cmd == cmd_kind['equals']:
-             return GraphtecCmd(cmd, cmd_kind)
+            return GraphtecCmd(cmd, cmd_kind)
         if 'startswith' in cmd_kind and cmd.startswith(cmd_kind['startswith']):
-             return GraphtecCmd(cmd, cmd_kind)
+            return GraphtecCmd(cmd, cmd_kind)
         if 'pattern' in cmd_kind:
-             m = re.match(cmd_kind['pattern'], cmd)
-             if m:
-                 return GraphtecCmd(cmd, cmd_kind, groups=m.groups())
+            m = re.match(cmd_kind['pattern'], cmd)
+            if m:
+                filter_func = cmd_kind.get('filter', default_filter)
+                values = m.groups()
+                values = filter_func(values)
+                return GraphtecCmd(cmd, cmd_kind, values=values)
     return NotFound(cmd)
     
 

@@ -20,10 +20,12 @@ def swap(coordinates):
 
 def scale(coordinates):
     """ scale from Graphtec DPI to SVG DPI scale """
-    if type(coordinates) in (list, tuple):
-        return tuple(scale(val) for val in coordinates)
-    elif type(coordinates) in (float, int):
+    if type(coordinates) in (float, int):
         return coordinates * SVG_DPI / GRAPHTEC_DPI
+    elif type(coordinates) in (list, tuple):
+        return tuple(scale(val) for val in coordinates)
+    else:
+        raise NotImplementedError()
 
 def main():
     global SVG_DPI
@@ -61,12 +63,13 @@ def main():
         elif type(pcmd) == GraphtecCmd and pcmd.kind['name'] == 'bezier':
             fmt = "M {},{} C {},{} {},{} {},{}"
             coord_pairs = pcmd.values[1:9]
-            coord_pairs = coord_pairs[0:2], coord_pairs[2:4], coord_pairs[4:6], coord_pairs[6:8]
-            coord_pairs = (swap(coords) for coords in coord_pairs)
-            coord_pairs = (scale(coords) for coords in coord_pairs)
+            coord_pairs = [coord_pairs[0:2], coord_pairs[2:4], coord_pairs[4:6], coord_pairs[6:8]]
+            coord_pairs = [swap(coords) for coords in coord_pairs]
+            coord_pairs = [scale(coords) for coords in coord_pairs]
             coords_flat = [item for sublist in coord_pairs for item in sublist]
             d = fmt.format(*coords_flat)
             dwg.add(dwg.path(d=d, stroke=svgwrite.rgb(10, 10, 16, '%'), fill='none'))
+            start = coord_pairs[3]
     dwg.save()
 
 if __name__ == "__main__": main()
