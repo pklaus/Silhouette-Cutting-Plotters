@@ -85,7 +85,7 @@ def main():
             coord_pairs = [scale(coords) for coords in coord_pairs]
             coords_flat = [item for sublist in coord_pairs for item in sublist]
             d = fmt.format(*coords_flat)
-            dwg.add(dwg.path(d=d, stroke=svgwrite.rgb(10, 10, 16, '%'), fill='none'))
+            dwg.add(dwg.path(d=d, stroke=svgwrite.rgb(10, 10, 16, '%'), fill='none', stroke_width='0.4'))
             start = coord_pairs[3]
     dwg.save()
 
